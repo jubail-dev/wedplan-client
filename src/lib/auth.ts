@@ -1,0 +1,63 @@
+
+import { betterAuth } from "better-auth";
+import { mongodbAdapter } from "@better-auth/mongo-adapter";
+import { MongoClient } from "mongodb";
+import { jwt } from "better-auth/plugins";
+
+const mongoClient = new MongoClient(process.env.MONGODB_URI!);
+
+const db = mongoClient.db("wedplan");
+
+export const auth = betterAuth({
+  baseURL: process.env.BETTER_AUTH_URL,
+  secret: process.env.BETTER_AUTH_SECRET,
+
+    user: {
+    additionalFields: {
+      role: {
+        type: ["customer", "vendor"],
+        required: false,
+        defaultValue: "customer",
+      },
+      isBlocked: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
+      businessName: {
+        type: "string",
+        required: false,
+        input: false,
+      },
+      subscriptionPlan: {
+        type: ["free", "premium"],
+        required: false,
+        defaultValue: "free",
+        input: false,
+      },
+      subscriptionExpiresAt: {
+        type: "date",
+        required: false,
+        input: false,
+      },
+    },
+  },
+
+  database: mongodbAdapter(db, {
+    client: mongoClient,
+  }),
+
+  emailAndPassword: {
+    enabled: true,
+  },
+
+  socialProviders: {
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  },
+},
+
+  plugins: [jwt()],
+});
