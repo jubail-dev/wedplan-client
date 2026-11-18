@@ -351,6 +351,63 @@ export default function VendorServicesPage() {
     }
   };
 
+  // Toggle Service Availability
+  const handleAvailabilityToggle = async (service: VendorService) => {
+    try {
+      const tokenResponse = await fetch("/api/auth/token", {
+        cache: "no-store",
+      });
+
+      const tokenData: { token?: string } = await tokenResponse.json();
+
+      if (!tokenResponse.ok || !tokenData.token) {
+        throw new Error("Authentication token not found!");
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_SERVER_URL}/vendor/services/${service._id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenData.token}`,
+          },
+          body: JSON.stringify({
+            isAvailable: !service.isAvailable,
+          }),
+        },
+      );
+
+      const data: {
+        success: boolean;
+        message?: string;
+      } = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to Update Availability!");
+      }
+
+      toast.success(
+        service.isAvailable
+          ? "Service Marked as Unavailable!"
+          : "Service Marked as Available!",
+      );
+
+      setServices((previousServices) =>
+        previousServices.map((item) =>
+          item._id === service._id
+            ? { ...item, isAvailable: !service.isAvailable }
+            : item,
+        ),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Something Went Wrong!";
+
+      toast.error(message);
+    }
+  };
+
   const getStatusStyle = (status: VendorService["status"]) => {
     switch (status) {
       case "Approved":
@@ -561,20 +618,37 @@ export default function VendorServicesPage() {
                   </div>
 
                   {/* Availability */}
-                  <div className="mt-4 flex items-center justify-between rounded-xl bg-[#FAF7F2] px-3 py-3">
-                    <span className="text-sm font-medium text-stone-600">
-                      Availability
-                    </span>
 
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  <div className="mt-4 flex items-center justify-between rounded-xl bg-[#FAF7F2] px-3 py-3">
+                    <div>
+                      <span className="block text-sm font-medium text-stone-600">
+                        Availability
+                      </span>
+
+                      <span
+                        className={`mt-1 inline-block text-xs font-semibold ${
+                          service.isAvailable
+                            ? "text-green-700"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {service.isAvailable ? "Available" : "Unavailable"}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleAvailabilityToggle(service)}
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
                         service.isAvailable
-                          ? "bg-green-100 text-green-700"
-                          : "bg-stone-200 text-stone-600"
+                          ? "bg-red-50 text-red-600 hover:bg-red-100"
+                          : "bg-green-50 text-green-700 hover:bg-green-100"
                       }`}
                     >
-                      {service.isAvailable ? "Available" : "Unavailable"}
-                    </span>
+                      {service.isAvailable
+                        ? "Mark Unavailable"
+                        : "Mark Available"}
+                    </button>
                   </div>
 
                   {/* Service Actions */}
