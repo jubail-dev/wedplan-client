@@ -8,7 +8,7 @@ import { Menu, X, ArrowRight } from "lucide-react";
 const navLinks = [
   { name: "Home", href: "/" },
   { name: "Browse Services", href: "/services" },
-  { name: "About", href: "/about" },
+  { name: "Dashboard", href: "/dashboard/vendor" },
 ];
 
 export default function Navbar() {
