@@ -3,22 +3,72 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Menu, X, ArrowRight, LogOut } from "lucide-react";
+import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 
 const navLinks = [
   { name: "Home", href: "/" },
   { name: "Browse Services", href: "/services" },
-  { name: "Dashboard", href: "/dashboard/vendor" },
 ];
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
+
+  const role = session?.user.role;
+
+  const dashboardHref =
+    role === "admin"
+      ? "/dashboard/admin"
+      : role === "vendor"
+        ? "/dashboard/vendor"
+        : "/dashboard/customer";
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+
+    try {
+      const { error } = await authClient.signOut();
+
+      if (error) {
+        throw new Error(error.message || "Unable to sign out.");
+      }
+
+      setIsMenuOpen(false);
+      toast.success("Signed out successfully.");
+
+      router.push("/sign-in");
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again.",
+      );
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  const authenticatedLinks = [
+    ...navLinks,
+    ...(session ? [{ name: "Dashboard", href: dashboardHref }] : []),
+  ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#E9DED2] bg-[#FAF7F2]/95 backdrop-blur-md">
       <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 md:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link
+          href="/"
+          className="flex items-center gap-2"
+          onClick={() => setIsMenuOpen(false)}
+        >
           <svg
             width="34"
             height="34"
@@ -50,7 +100,7 @@ export default function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden items-center gap-9 md:flex">
-          {navLinks.map((link) => (
+          {authenticatedLinks.map((link) => (
             <Link
               key={link.name}
               href={link.href}
@@ -63,20 +113,35 @@ export default function Navbar() {
 
         {/* Desktop Actions */}
         <div className="hidden items-center gap-5 md:flex">
-          <Link
-            href="/sign-in"
-            className="text-sm font-medium text-[#57534E] transition-colors hover:text-[#D97985]"
-          >
-            Sign In
-          </Link>
+          {!isPending &&
+            (session ? (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="inline-flex items-center gap-2 rounded-full border border-[#E9DED2] px-5 py-2.5 text-sm font-semibold text-[#57534E] transition-all hover:border-[#D97985] hover:bg-[#FCECEF] hover:text-[#C56573] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <LogOut size={16} />
+                {isSigningOut ? "Signing Out..." : "Sign Out"}
+              </button>
+            ) : (
+              <>
+                <Link
+                  href="/sign-in"
+                  className="text-sm font-medium text-[#57534E] transition-colors hover:text-[#D97985]"
+                >
+                  Sign In
+                </Link>
 
-          <Link
-            href="/sign-up"
-            className="inline-flex items-center gap-2 rounded-full bg-[#D97985] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#C56573] hover:shadow-md"
-          >
-            Get Started
-            <ArrowRight size={16} />
-          </Link>
+                <Link
+                  href="/sign-up"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#D97985] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#C56573] hover:shadow-md"
+                >
+                  Get Started
+                  <ArrowRight size={16} />
+                </Link>
+              </>
+            ))}
         </div>
 
         {/* Mobile Menu Button */}
@@ -95,7 +160,7 @@ export default function Navbar() {
       {isMenuOpen && (
         <div className="border-t border-[#E9DED2] bg-[#FAF7F2] px-5 py-5 md:hidden">
           <div className="flex flex-col gap-5">
-            {navLinks.map((link) => (
+            {authenticatedLinks.map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
@@ -107,22 +172,37 @@ export default function Navbar() {
             ))}
 
             <div className="flex flex-col gap-3 border-t border-[#E9DED2] pt-4">
-              <Link
-                href="/sign-in"
-                onClick={() => setIsMenuOpen(false)}
-                className="text-sm font-medium text-[#57534E]"
-              >
-                Sign In
-              </Link>
+              {!isPending &&
+                (session ? (
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    disabled={isSigningOut}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-[#57534E] transition-colors hover:text-[#C56573] disabled:opacity-60"
+                  >
+                    <LogOut size={17} />
+                    {isSigningOut ? "Signing Out..." : "Sign Out"}
+                  </button>
+                ) : (
+                  <>
+                    <Link
+                      href="/sign-in"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="text-sm font-medium text-[#57534E]"
+                    >
+                      Sign In
+                    </Link>
 
-              <Link
-                href="/sign-up"
-                onClick={() => setIsMenuOpen(false)}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#D97985] px-6 py-3 text-sm font-semibold text-white"
-              >
-                Get Started
-                <ArrowRight size={16} />
-              </Link>
+                    <Link
+                      href="/sign-up"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#D97985] px-6 py-3 text-sm font-semibold text-white"
+                    >
+                      Get Started
+                      <ArrowRight size={16} />
+                    </Link>
+                  </>
+                ))}
             </div>
           </div>
         </div>

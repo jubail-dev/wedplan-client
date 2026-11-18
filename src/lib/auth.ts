@@ -1,3 +1,4 @@
+
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { MongoClient } from "mongodb";
@@ -14,7 +15,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       role: {
-        type: ["customer", "vendor"],
+        type: ["customer", "vendor", "admin"],
         required: false,
         defaultValue: "customer",
       },
@@ -46,6 +47,20 @@ export const auth = betterAuth({
   database: mongodbAdapter(db, {
     client: mongoClient,
   }),
+
+  // Public registration cannot create an admin account.
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => ({
+          data: {
+            ...user,
+            role: user.role === "vendor" ? "vendor" : "customer",
+          },
+        }),
+      },
+    },
+  },
 
   emailAndPassword: {
     enabled: true,
