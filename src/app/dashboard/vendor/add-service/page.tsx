@@ -10,7 +10,6 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   PlusCircle,
   UploadCloud,
@@ -69,11 +68,8 @@ interface VendorStatsResponse {
 }
 
 const FREE_PLAN_LIMIT = 3;
-const SUBSCRIPTION_URL = "/dashboard/vendor/subscription";
 
 export default function AddServicePage() {
-  const router = useRouter();
-
   const [category, setCategory] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,6 +77,7 @@ export default function AddServicePage() {
   const [imagePreview, setImagePreview] = useState("");
   const [imageError, setImageError] = useState("");
 
+  // Subscription and service usage
   const [subscriptionPlan, setSubscriptionPlan] = useState<
     "free" | "premium"
   >("free");
@@ -96,6 +93,8 @@ export default function AddServicePage() {
 
   const hasReachedFreeLimit =
     !isPremium && serviceSlotsUsed >= FREE_PLAN_LIMIT;
+
+  const canCreateService = isPremium || !hasReachedFreeLimit;
 
   const progressPercentage = isPremium
     ? 100
@@ -257,17 +256,10 @@ export default function AddServicePage() {
       return;
     }
 
-    // Free Plan limit check must happen before form validation or upload
     if (hasReachedFreeLimit) {
       toast.error(
-        "You have reached the Free Plan limit. Please upgrade to Premium to add more services.",
+        "You have reached the Free Plan limit. Upgrade to Premium to continue.",
       );
-
-      // Keep the form visible briefly so the toast can be seen
-      window.setTimeout(() => {
-        router.push(SUBSCRIPTION_URL);
-      }, 900);
-
       return;
     }
 
@@ -435,11 +427,7 @@ export default function AddServicePage() {
               </div>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              noValidate
-              className="space-y-7 p-6 sm:p-8"
-            >
+            <form onSubmit={handleSubmit} className="space-y-7 p-6 sm:p-8">
               {/* Basic Information */}
               <section className="space-y-5">
                 <div>
@@ -697,6 +685,32 @@ export default function AddServicePage() {
                 </div>
               </div>
 
+              {/* Free Plan Limit Notice */}
+              {!isPlanLoading && hasReachedFreeLimit && (
+                <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">
+                      Free Plan Limit Reached
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-amber-800">
+                      You have used all 3 service slots. Pending and approved
+                      services count toward this limit. Upgrade to Premium
+                      for unlimited services.
+                    </p>
+                  </div>
+
+                  <Button
+                    asChild
+                    className="shrink-0 bg-[#D97985] text-white hover:bg-[#C76B77]"
+                  >
+                    <Link href="/dashboard/vendor/subscription">
+                      Upgrade Now
+                      <ArrowUpRight size={16} className="ml-2" />
+                    </Link>
+                  </Button>
+                </div>
+              )}
+
               {/* Submit Actions */}
               <div className="flex flex-col-reverse gap-3 border-t border-[#F0E9E1] pt-6 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-stone-400">
@@ -705,7 +719,11 @@ export default function AddServicePage() {
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting || isPlanLoading}
+                  disabled={
+                    isSubmitting ||
+                    isPlanLoading ||
+                    !canCreateService
+                  }
                   className="h-12 w-full rounded-xl bg-[#D97985] px-7 text-sm font-semibold text-white shadow-md shadow-[#D97985]/20 hover:bg-[#C76B77] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                   {isSubmitting ? (
@@ -723,6 +741,11 @@ export default function AddServicePage() {
                         className="mr-2 animate-spin"
                       />
                       Loading Plan...
+                    </>
+                  ) : hasReachedFreeLimit ? (
+                    <>
+                      Upgrade to Continue
+                      <Crown size={17} className="ml-2" />
                     </>
                   ) : (
                     <>
@@ -891,7 +914,7 @@ export default function AddServicePage() {
                         asChild
                         className="mt-5 w-full rounded-xl bg-[#D97985] text-white hover:bg-[#C76B77]"
                       >
-                        <Link href={SUBSCRIPTION_URL}>
+                        <Link href="/dashboard/vendor/subscription">
                           <Crown size={16} className="mr-2" />
                           Upgrade to Premium
                           <ArrowUpRight size={16} className="ml-2" />
