@@ -1,8 +1,16 @@
 
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   PlusCircle,
   UploadCloud,
@@ -15,6 +23,9 @@ import {
   CheckCircle2,
   X,
   LoaderCircle,
+  Crown,
+  ArrowUpRight,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,7 +51,29 @@ interface ServiceResponse {
   message?: string;
 }
 
+interface VendorStats {
+  activeServices?: number;
+  pendingServices?: number;
+  serviceSlotsUsed?: number;
+  subscriptionPlan?: "free" | "premium";
+}
+
+interface VendorStatsResponse {
+  success?: boolean;
+  stats?: VendorStats;
+  activeServices?: number;
+  pendingServices?: number;
+  serviceSlotsUsed?: number;
+  subscriptionPlan?: "free" | "premium";
+  message?: string;
+}
+
+const FREE_PLAN_LIMIT = 3;
+const SUBSCRIPTION_URL = "/dashboard/vendor/subscription";
+
 export default function AddServicePage() {
+  const router = useRouter();
+
   const [category, setCategory] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,6 +81,114 @@ export default function AddServicePage() {
   const [imagePreview, setImagePreview] = useState("");
   const [imageError, setImageError] = useState("");
 
+  const [subscriptionPlan, setSubscriptionPlan] = useState<
+    "free" | "premium"
+  >("free");
+
+  const [activeServices, setActiveServices] = useState(0);
+  const [pendingServices, setPendingServices] = useState(0);
+  const [serviceSlotsUsed, setServiceSlotsUsed] = useState(0);
+
+  const [isPlanLoading, setIsPlanLoading] = useState(true);
+  const [planError, setPlanError] = useState("");
+
+  const isPremium = subscriptionPlan === "premium";
+
+  const hasReachedFreeLimit =
+    !isPremium && serviceSlotsUsed >= FREE_PLAN_LIMIT;
+
+  const progressPercentage = isPremium
+    ? 100
+    : Math.min((serviceSlotsUsed / FREE_PLAN_LIMIT) * 100, 100);
+
+  // Fetch vendor subscription and service information
+  const loadVendorStats = useCallback(async () => {
+    const serverUrl = process.env.NEXT_PUBLIC_BASE_SERVER_URL;
+
+    if (!serverUrl) {
+      setPlanError("Server configuration is missing.");
+      setIsPlanLoading(false);
+      return;
+    }
+
+    try {
+      setPlanError("");
+
+      const tokenResponse = await fetch("/api/auth/token");
+
+      if (!tokenResponse.ok) {
+        throw new Error("Unable to retrieve authentication token.");
+      }
+
+      const tokenData: { token?: string } = await tokenResponse.json();
+
+      if (!tokenData.token) {
+        throw new Error("Please sign in again to continue.");
+      }
+
+      const response = await fetch(
+        `${serverUrl}/vendor/dashboard/stats`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${tokenData.token}`,
+          },
+          cache: "no-store",
+        },
+      );
+
+      const result: VendorStatsResponse = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(
+          result.message || "Unable to load subscription information.",
+        );
+      }
+
+      const stats = result.stats ?? result;
+
+      setSubscriptionPlan(
+        stats.subscriptionPlan === "premium" ? "premium" : "free",
+      );
+
+      setActiveServices(
+        typeof stats.activeServices === "number" &&
+          Number.isFinite(stats.activeServices)
+          ? Math.max(0, stats.activeServices)
+          : 0,
+      );
+
+      setPendingServices(
+        typeof stats.pendingServices === "number" &&
+          Number.isFinite(stats.pendingServices)
+          ? Math.max(0, stats.pendingServices)
+          : 0,
+      );
+
+      setServiceSlotsUsed(
+        typeof stats.serviceSlotsUsed === "number" &&
+          Number.isFinite(stats.serviceSlotsUsed)
+          ? Math.max(0, stats.serviceSlotsUsed)
+          : 0,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to load subscription information.";
+
+      setPlanError(message);
+      toast.error(message);
+    } finally {
+      setIsPlanLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadVendorStats();
+  }, [loadVendorStats]);
+
+  // Handle image selection
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
 
@@ -90,6 +231,7 @@ export default function AddServicePage() {
     reader.readAsDataURL(file);
   };
 
+  // Remove selected image
   const removeImage = () => {
     setImageFile(null);
     setImagePreview("");
@@ -104,10 +246,30 @@ export default function AddServicePage() {
     }
   };
 
+  // Submit service
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (isSubmitting) return;
+
+    if (isPlanLoading) {
+      toast.info("Please wait while your subscription is loading.");
+      return;
+    }
+
+    // Free Plan limit check must happen before form validation or upload
+    if (hasReachedFreeLimit) {
+      toast.error(
+        "You have reached the Free Plan limit. Please upgrade to Premium to add more services.",
+      );
+
+      // Keep the form visible briefly so the toast can be seen
+      window.setTimeout(() => {
+        router.push(SUBSCRIPTION_URL);
+      }, 900);
+
+      return;
+    }
 
     const form = event.currentTarget;
     const formData = new FormData(form);
@@ -119,7 +281,6 @@ export default function AddServicePage() {
 
     const price = Number(priceValue);
 
-    // Validate all required fields
     if (
       typeof serviceName !== "string" ||
       !serviceName.trim() ||
@@ -159,7 +320,7 @@ export default function AddServicePage() {
         throw new Error("Please sign in again to continue.");
       }
 
-      // Step 2: Upload image to ImgBB
+      // Step 2: Upload image
       const uploadFormData = new FormData();
       uploadFormData.append("image", imageFile);
 
@@ -203,7 +364,7 @@ export default function AddServicePage() {
         );
       }
 
-      // Step 4: Reset form after successful submission
+      // Step 4: Reset form
       form.reset();
       setCategory("");
       removeImage();
@@ -211,6 +372,10 @@ export default function AddServicePage() {
       toast.success(
         serviceResult.message || "Service submitted for admin approval!",
       );
+
+      // Step 5: Refresh subscription and service usage
+      setIsPlanLoading(true);
+      await loadVendorStats();
     } catch (error) {
       const message =
         error instanceof Error
@@ -272,6 +437,7 @@ export default function AddServicePage() {
 
             <form
               onSubmit={handleSubmit}
+              noValidate
               className="space-y-7 p-6 sm:p-8"
             >
               {/* Basic Information */}
@@ -311,10 +477,7 @@ export default function AddServicePage() {
                     Service Category <span className="text-[#D97985]">*</span>
                   </label>
 
-                  <Select
-                    value={category}
-                    onValueChange={setCategory}
-                  >
+                  <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger
                       id="category"
                       className="h-11 w-full border-[#E9DED2] bg-[#FFFEFC] focus:ring-[#D97985]"
@@ -542,8 +705,8 @@ export default function AddServicePage() {
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="h-12 w-full rounded-xl bg-[#D97985] px-7 text-sm font-semibold text-white shadow-md shadow-[#D97985]/20 hover:bg-[#C76B77] sm:w-auto"
+                  disabled={isSubmitting || isPlanLoading}
+                  className="h-12 w-full rounded-xl bg-[#D97985] px-7 text-sm font-semibold text-white shadow-md shadow-[#D97985]/20 hover:bg-[#C76B77] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                   {isSubmitting ? (
                     <>
@@ -552,6 +715,14 @@ export default function AddServicePage() {
                         className="mr-2 animate-spin"
                       />
                       Submitting...
+                    </>
+                  ) : isPlanLoading ? (
+                    <>
+                      <LoaderCircle
+                        size={17}
+                        className="mr-2 animate-spin"
+                      />
+                      Loading Plan...
                     </>
                   ) : (
                     <>
@@ -592,45 +763,150 @@ export default function AddServicePage() {
               </div>
             </div>
 
-            {/* Free Plan Card */}
+            {/* Dynamic Subscription Plan Card */}
             <div className="overflow-hidden rounded-2xl border border-[#E9DED2] bg-white shadow-sm">
-              <div className="bg-[#FCECEF] p-5">
+              <div
+                className={`p-5 ${
+                  isPremium
+                    ? "bg-gradient-to-br from-[#F1E3C8] to-[#FFF8E9]"
+                    : "bg-[#FCECEF]"
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#B95F6D]">
                     CURRENT PLAN
                   </span>
-                  <Sparkles size={19} className="text-[#B95F6D]" />
+
+                  {isPremium ? (
+                    <Crown size={20} className="text-[#A17B3D]" />
+                  ) : (
+                    <Sparkles size={19} className="text-[#B95F6D]" />
+                  )}
                 </div>
 
                 <h3 className="mt-4 font-heading text-2xl font-bold text-stone-800">
-                  Free Plan
+                  {isPlanLoading
+                    ? "Loading..."
+                    : isPremium
+                      ? "Premium Plan"
+                      : "Free Plan"}
                 </h3>
 
                 <p className="mt-1 text-xs text-stone-500">
-                  Get started with your wedding business.
+                  {isPremium
+                    ? "Enjoy unlimited service publishing."
+                    : "Get started with your wedding business."}
                 </p>
               </div>
 
               <div className="p-5">
                 <p className="text-sm font-medium text-stone-700">
-                  Your publishing limit
+                  Your publishing usage
                 </p>
 
-                <p className="mt-2 font-heading text-3xl font-bold text-[#D97985]">
-                  3{" "}
-                  <span className="text-sm font-medium text-stone-500">
-                    Active Services
-                  </span>
-                </p>
+                {isPlanLoading ? (
+                  <div className="mt-4 flex items-center gap-2 text-sm text-stone-400">
+                    <LoaderCircle size={16} className="animate-spin" />
+                    Loading your plan details...
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-2 font-heading text-3xl font-bold text-[#D97985]">
+                      {isPremium ? "Unlimited" : serviceSlotsUsed}
+                      {!isPremium && (
+                        <span className="text-sm font-medium text-stone-500">
+                          {" "}
+                          / {FREE_PLAN_LIMIT}
+                        </span>
+                      )}
+                    </p>
 
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#F5E9E7]">
-                  <div className="h-full w-0 rounded-full bg-[#D97985]" />
-                </div>
+                    <p className="mt-1 text-xs text-stone-500">
+                      {isPremium
+                        ? "Service Slots"
+                        : "Service Slots Used"}
+                    </p>
 
-                <p className="mt-3 text-xs leading-5 text-stone-500">
-                  Free vendors can publish up to 3 active services.
-                  Upgrade to Premium for unlimited publishing.
-                </p>
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#F5E9E7]">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isPremium ? "bg-[#A17B3D]" : "bg-[#D97985]"
+                        }`}
+                        style={{
+                          width: `${progressPercentage}%`,
+                        }}
+                      />
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-stone-500">
+                          Active Services
+                        </span>
+                        <span className="font-semibold text-stone-700">
+                          {activeServices}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-stone-500">
+                          Pending Approval
+                        </span>
+                        <span className="font-semibold text-stone-700">
+                          {pendingServices}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-xs leading-5 text-stone-500">
+                      {isPremium
+                        ? "Your Premium Plan allows unlimited services."
+                        : `${serviceSlotsUsed} of ${FREE_PLAN_LIMIT} service slots used. Pending and approved available services count toward your limit.`}
+                    </p>
+
+                    {planError && (
+                      <div className="mt-3 rounded-lg bg-red-50 p-3">
+                        <p className="text-xs leading-5 text-red-600">
+                          {planError}
+                        </p>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setIsPlanLoading(true);
+                            void loadVendorStats();
+                          }}
+                          className="mt-2 h-8 border-red-200 text-red-600 hover:bg-red-100"
+                        >
+                          <RefreshCw size={13} className="mr-2" />
+                          Retry
+                        </Button>
+                      </div>
+                    )}
+
+                    {!isPremium && (
+                      <Button
+                        asChild
+                        className="mt-5 w-full rounded-xl bg-[#D97985] text-white hover:bg-[#C76B77]"
+                      >
+                        <Link href={SUBSCRIPTION_URL}>
+                          <Crown size={16} className="mr-2" />
+                          Upgrade to Premium
+                          <ArrowUpRight size={16} className="ml-2" />
+                        </Link>
+                      </Button>
+                    )}
+
+                    {isPremium && (
+                      <div className="mt-5 flex items-center gap-2 rounded-lg bg-[#F8F2E6] p-3 text-xs font-medium text-[#8B6B36]">
+                        <CheckCircle2 size={16} />
+                        Premium benefits are active
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
