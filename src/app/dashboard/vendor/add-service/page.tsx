@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -51,6 +50,7 @@ interface ServiceResponse {
 }
 
 interface VendorStats {
+  totalServices?: number;
   activeServices?: number;
   pendingServices?: number;
   serviceSlotsUsed?: number;
@@ -60,6 +60,7 @@ interface VendorStats {
 interface VendorStatsResponse {
   success?: boolean;
   stats?: VendorStats;
+  totalServices?: number;
   activeServices?: number;
   pendingServices?: number;
   serviceSlotsUsed?: number;
@@ -78,9 +79,9 @@ export default function AddServicePage() {
   const [imageError, setImageError] = useState("");
 
   // Subscription and service usage
-  const [subscriptionPlan, setSubscriptionPlan] = useState<
-    "free" | "premium"
-  >("free");
+  const [subscriptionPlan, setSubscriptionPlan] = useState<"free" | "premium">(
+    "free",
+  );
 
   const [activeServices, setActiveServices] = useState(0);
   const [pendingServices, setPendingServices] = useState(0);
@@ -91,10 +92,14 @@ export default function AddServicePage() {
 
   const isPremium = subscriptionPlan === "premium";
 
-  const hasReachedFreeLimit =
-    !isPremium && serviceSlotsUsed >= FREE_PLAN_LIMIT;
+  // Pending + Approved services count toward the Free Plan limit.
+  const hasReachedFreeLimit = !isPremium && serviceSlotsUsed >= FREE_PLAN_LIMIT;
 
   const canCreateService = isPremium || !hasReachedFreeLimit;
+
+  // Show Upgrade only after successfully loading plan information.
+  const shouldShowUpgradeButton =
+    !isPlanLoading && !planError && hasReachedFreeLimit;
 
   const progressPercentage = isPremium
     ? 100
@@ -113,6 +118,7 @@ export default function AddServicePage() {
     try {
       setPlanError("");
 
+      // Step 1: Get authentication token
       const tokenResponse = await fetch("/api/auth/token");
 
       if (!tokenResponse.ok) {
@@ -125,16 +131,14 @@ export default function AddServicePage() {
         throw new Error("Please sign in again to continue.");
       }
 
-      const response = await fetch(
-        `${serverUrl}/vendor/dashboard/stats`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${tokenData.token}`,
-          },
-          cache: "no-store",
+      // Step 2: Fetch vendor dashboard stats
+      const response = await fetch(`${serverUrl}/vendor/dashboard/stats`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${tokenData.token}`,
         },
-      );
+        cache: "no-store",
+      });
 
       const result: VendorStatsResponse = await response.json();
 
@@ -146,30 +150,37 @@ export default function AddServicePage() {
 
       const stats = result.stats ?? result;
 
+      // Validate the service slot count returned by backend.
+      if (
+        typeof stats.serviceSlotsUsed !== "number" ||
+        !Number.isFinite(stats.serviceSlotsUsed) ||
+        stats.serviceSlotsUsed < 0
+      ) {
+        throw new Error(
+          "Service usage information is unavailable. Please try again.",
+        );
+      }
+
+      // Step 3: Update subscription information
       setSubscriptionPlan(
         stats.subscriptionPlan === "premium" ? "premium" : "free",
       );
 
-      setActiveServices(
+      const activeCount =
         typeof stats.activeServices === "number" &&
-          Number.isFinite(stats.activeServices)
+        Number.isFinite(stats.activeServices)
           ? Math.max(0, stats.activeServices)
-          : 0,
-      );
+          : 0;
 
-      setPendingServices(
+      const pendingCount =
         typeof stats.pendingServices === "number" &&
-          Number.isFinite(stats.pendingServices)
+        Number.isFinite(stats.pendingServices)
           ? Math.max(0, stats.pendingServices)
-          : 0,
-      );
+          : 0;
 
-      setServiceSlotsUsed(
-        typeof stats.serviceSlotsUsed === "number" &&
-          Number.isFinite(stats.serviceSlotsUsed)
-          ? Math.max(0, stats.serviceSlotsUsed)
-          : 0,
-      );
+      setActiveServices(activeCount);
+      setPendingServices(pendingCount);
+      setServiceSlotsUsed(Math.max(0, stats.serviceSlotsUsed));
     } catch (error) {
       const message =
         error instanceof Error
@@ -186,6 +197,12 @@ export default function AddServicePage() {
   useEffect(() => {
     void loadVendorStats();
   }, [loadVendorStats]);
+
+  // Retry subscription information
+  const handleRetryPlan = () => {
+    setIsPlanLoading(true);
+    void loadVendorStats();
+  };
 
   // Handle image selection
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -253,6 +270,11 @@ export default function AddServicePage() {
 
     if (isPlanLoading) {
       toast.info("Please wait while your subscription is loading.");
+      return;
+    }
+
+    if (planError) {
+      toast.error("Please reload your subscription information first.");
       return;
     }
 
@@ -351,9 +373,7 @@ export default function AddServicePage() {
       const serviceResult: ServiceResponse = await serviceResponse.json();
 
       if (!serviceResponse.ok || !serviceResult.success) {
-        throw new Error(
-          serviceResult.message || "Failed to create service.",
-        );
+        throw new Error(serviceResult.message || "Failed to create service.");
       }
 
       // Step 4: Reset form
@@ -396,8 +416,8 @@ export default function AddServicePage() {
             </h1>
 
             <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-              Showcase your wedding services and connect with couples
-              planning their special day.
+              Showcase your wedding services and connect with couples planning
+              their special day.
             </p>
           </div>
 
@@ -562,8 +582,7 @@ export default function AddServicePage() {
                       className="flex items-center gap-2 text-sm font-medium text-stone-700"
                     >
                       <MapPin size={15} className="text-[#D97985]" />
-                      Service Location{" "}
-                      <span className="text-[#D97985]">*</span>
+                      Service Location <span className="text-[#D97985]">*</span>
                     </label>
 
                     <Input
@@ -678,15 +697,14 @@ export default function AddServicePage() {
                     Admin Approval Required
                   </p>
                   <p className="mt-1 text-xs leading-5 text-stone-500">
-                    Your service will be submitted with Pending status.
-                    It will become visible to customers only after admin
-                    approval.
+                    Your service will be submitted with Pending status. It will
+                    become visible to customers only after admin approval.
                   </p>
                 </div>
               </div>
 
               {/* Free Plan Limit Notice */}
-              {!isPlanLoading && hasReachedFreeLimit && (
+              {shouldShowUpgradeButton && (
                 <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-amber-900">
@@ -694,20 +712,20 @@ export default function AddServicePage() {
                     </p>
                     <p className="mt-1 text-xs leading-5 text-amber-800">
                       You have used all 3 service slots. Pending and approved
-                      services count toward this limit. Upgrade to Premium
-                      for unlimited services.
+                      services count toward this limit. Upgrade to Premium for
+                      unlimited services.
                     </p>
                   </div>
 
-                  <Button
-                    asChild
-                    className="shrink-0 bg-[#D97985] text-white hover:bg-[#C76B77]"
-                  >
-                    <Link href="/dashboard/vendor/subscription">
+                  <Link href="/dashboard/vendor/subscription">
+                    <Button
+                      type="button"
+                      className="shrink-0 bg-[#D97985] text-white hover:bg-[#C76B77]"
+                    >
                       Upgrade Now
                       <ArrowUpRight size={16} className="ml-2" />
-                    </Link>
-                  </Button>
+                    </Button>
+                  </Link>
                 </div>
               )}
 
@@ -717,43 +735,55 @@ export default function AddServicePage() {
                   <span className="text-[#D97985]">*</span> Required fields
                 </p>
 
-                <Button
-                  type="submit"
-                  disabled={
-                    isSubmitting ||
-                    isPlanLoading ||
-                    !canCreateService
-                  }
-                  className="h-12 w-full rounded-xl bg-[#D97985] px-7 text-sm font-semibold text-white shadow-md shadow-[#D97985]/20 hover:bg-[#C76B77] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <LoaderCircle
-                        size={17}
-                        className="mr-2 animate-spin"
-                      />
-                      Submitting...
-                    </>
-                  ) : isPlanLoading ? (
-                    <>
-                      <LoaderCircle
-                        size={17}
-                        className="mr-2 animate-spin"
-                      />
-                      Loading Plan...
-                    </>
-                  ) : hasReachedFreeLimit ? (
-                    <>
-                      Upgrade to Continue
-                      <Crown size={17} className="ml-2" />
-                    </>
-                  ) : (
-                    <>
-                      Submit for Approval
-                      <PlusCircle size={17} className="ml-2" />
-                    </>
-                  )}
-                </Button>
+                {shouldShowUpgradeButton ? (
+                  <Link
+                    href="/dashboard/vendor/subscription"
+                    className="block w-full sm:w-auto"
+                  >
+                    <Button
+                      type="button"
+                      className="h-12 w-full rounded-xl bg-[#D97985] px-7 text-sm font-semibold text-white shadow-md shadow-[#D97985]/20 hover:bg-[#C76B77] sm:w-auto"
+                    >
+                      <Crown size={17} className="mr-2" />
+                      Upgrade to Premium
+                      <ArrowUpRight size={17} className="ml-2" />
+                    </Button>
+                  </Link>
+                ) : planError ? (
+                  <Button
+                    type="button"
+                    onClick={handleRetryPlan}
+                    className="h-12 w-full rounded-xl bg-[#D97985] px-7 text-sm font-semibold text-white hover:bg-[#C76B77] sm:w-auto"
+                  >
+                    <RefreshCw size={17} className="mr-2" />
+                    Retry Plan Loading
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={
+                      isSubmitting || isPlanLoading || !canCreateService
+                    }
+                    className="h-12 w-full rounded-xl bg-[#D97985] px-7 text-sm font-semibold text-white shadow-md shadow-[#D97985]/20 hover:bg-[#C76B77] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <LoaderCircle size={17} className="mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : isPlanLoading ? (
+                      <>
+                        <LoaderCircle size={17} className="mr-2 animate-spin" />
+                        Loading Plan...
+                      </>
+                    ) : (
+                      <>
+                        Submit for Approval
+                        <PlusCircle size={17} className="ml-2" />
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </form>
           </div>
@@ -778,9 +808,7 @@ export default function AddServicePage() {
                       size={18}
                       className="mt-0.5 shrink-0 text-[#D97985]"
                     />
-                    <p className="text-xs leading-5 text-stone-500">
-                      {item}
-                    </p>
+                    <p className="text-xs leading-5 text-stone-500">{item}</p>
                   </div>
                 ))}
               </div>
@@ -832,6 +860,23 @@ export default function AddServicePage() {
                     <LoaderCircle size={16} className="animate-spin" />
                     Loading your plan details...
                   </div>
+                ) : planError ? (
+                  <div className="mt-4 rounded-lg bg-red-50 p-3">
+                    <p className="text-xs leading-5 text-red-600">
+                      Unable to load your subscription information.
+                    </p>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRetryPlan}
+                      className="mt-2 h-8 border-red-200 text-red-600 hover:bg-red-100"
+                    >
+                      <RefreshCw size={13} className="mr-2" />
+                      Retry
+                    </Button>
+                  </div>
                 ) : (
                   <>
                     <p className="mt-2 font-heading text-3xl font-bold text-[#D97985]">
@@ -845,9 +890,7 @@ export default function AddServicePage() {
                     </p>
 
                     <p className="mt-1 text-xs text-stone-500">
-                      {isPremium
-                        ? "Service Slots"
-                        : "Service Slots Used"}
+                      {isPremium ? "Service Slots" : "Service Slots Used"}
                     </p>
 
                     <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#F5E9E7]">
@@ -864,17 +907,22 @@ export default function AddServicePage() {
                     <div className="mt-5 space-y-3">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-stone-500">
-                          Active Services
+                          Total Service Slots Used
                         </span>
+                        <span className="font-semibold text-stone-700">
+                          {serviceSlotsUsed}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-stone-500">Active Services</span>
                         <span className="font-semibold text-stone-700">
                           {activeServices}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-stone-500">
-                          Pending Approval
-                        </span>
+                        <span className="text-stone-500">Pending Approval</span>
                         <span className="font-semibold text-stone-700">
                           {pendingServices}
                         </span>
@@ -884,42 +932,23 @@ export default function AddServicePage() {
                     <p className="mt-3 text-xs leading-5 text-stone-500">
                       {isPremium
                         ? "Your Premium Plan allows unlimited services."
-                        : `${serviceSlotsUsed} of ${FREE_PLAN_LIMIT} service slots used. Pending and approved available services count toward your limit.`}
+                        : `${serviceSlotsUsed} of ${FREE_PLAN_LIMIT} service slots used. Pending and all approved services count toward your limit.`}
                     </p>
 
-                    {planError && (
-                      <div className="mt-3 rounded-lg bg-red-50 p-3">
-                        <p className="text-xs leading-5 text-red-600">
-                          {planError}
-                        </p>
-
+                    {!isPremium && (
+                      <Link
+                        href="/dashboard/vendor/subscription"
+                        className="block w-full"
+                      >
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setIsPlanLoading(true);
-                            void loadVendorStats();
-                          }}
-                          className="mt-2 h-8 border-red-200 text-red-600 hover:bg-red-100"
+                          className="mt-5 w-full rounded-xl bg-[#D97985] text-white hover:bg-[#C76B77]"
                         >
-                          <RefreshCw size={13} className="mr-2" />
-                          Retry
-                        </Button>
-                      </div>
-                    )}
-
-                    {!isPremium && (
-                      <Button
-                        asChild
-                        className="mt-5 w-full rounded-xl bg-[#D97985] text-white hover:bg-[#C76B77]"
-                      >
-                        <Link href="/dashboard/vendor/subscription">
                           <Crown size={16} className="mr-2" />
                           Upgrade to Premium
                           <ArrowUpRight size={16} className="ml-2" />
-                        </Link>
-                      </Button>
+                        </Button>
+                      </Link>
                     )}
 
                     {isPremium && (
