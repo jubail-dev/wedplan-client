@@ -4,7 +4,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
   X,
@@ -30,6 +30,7 @@ export default function Navbar() {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const router = useRouter();
+  const pathname = usePathname();
   const profileRef = useRef<HTMLDivElement>(null);
 
   const { data: session, isPending } = authClient.useSession();
@@ -44,6 +45,21 @@ export default function Navbar() {
       : role === "vendor"
         ? "/dashboard/vendor"
         : "/dashboard/customer";
+
+  // Check whether a navigation link is active
+  const isActive = (href: string) => {
+    if (href === "/") {
+      return pathname === "/";
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const isDashboardActive =
+    pathname === dashboardHref ||
+    pathname.startsWith(`${dashboardHref}/`);
+
+  const isProfileActive = pathname === "/dashboard/profile";
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -73,11 +89,13 @@ export default function Navbar() {
     };
   }, [isProfileOpen]);
 
+  // Close menus after navigation
   const closeMenus = () => {
     setIsMenuOpen(false);
     setIsProfileOpen(false);
   };
 
+  // Sign out
   const handleSignOut = async () => {
     setIsSigningOut(true);
 
@@ -104,9 +122,13 @@ export default function Navbar() {
     }
   };
 
-  const ProfileAvatar = ({ size = "normal" }: { size?: "normal" | "small" }) => {
-    const dimension =
-      size === "small" ? "h-10 w-10" : "h-11 w-11";
+  // Profile Avatar
+  const ProfileAvatar = ({
+    size = "normal",
+  }: {
+    size?: "normal" | "small";
+  }) => {
+    const dimension = size === "small" ? "h-10 w-10" : "h-11 w-11";
 
     return (
       <div
@@ -130,27 +152,30 @@ export default function Navbar() {
     );
   };
 
+  // Profile Dropdown
   const ProfileDropdown = () => (
-    <div
-      ref={profileRef}
-      className="relative"
-    >
+    <div ref={profileRef} className="relative">
       <button
         type="button"
         onClick={() => setIsProfileOpen((previous) => !previous)}
         aria-expanded={isProfileOpen}
         aria-haspopup="menu"
-        aria-label="Open profile menu"
+        aria-label="Open user account menu"
         className={`group flex items-center gap-2.5 rounded-full border px-2 py-1.5 transition-all duration-300 ${
-          isProfileOpen
+          isProfileOpen || isProfileActive
             ? "border-[#D97985]/50 bg-white shadow-md"
             : "border-[#E9DED2] bg-white/70 hover:border-[#D97985]/50 hover:bg-white hover:shadow-md"
         }`}
       >
         <ProfileAvatar />
 
-        <span className="hidden max-w-28 truncate text-sm font-semibold text-[#44403C] lg:block">
-          {userName}
+        <span className="hidden text-left sm:block">
+          <span className="block text-[10px] font-medium uppercase tracking-wider text-[#A88751]">
+            My Account
+          </span>
+          <span className="block max-w-28 truncate text-sm font-semibold text-[#44403C]">
+            {userName}
+          </span>
         </span>
 
         <ChevronDown
@@ -180,12 +205,14 @@ export default function Navbar() {
                 <p className="truncate text-base font-bold text-[#292524]">
                   {userName}
                 </p>
+
                 <p className="mt-0.5 truncate text-xs text-[#78716C]">
                   {session?.user.email}
                 </p>
 
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#D9B987]/40 bg-white/80 px-2.5 py-1">
                   <Sparkles size={11} className="text-[#B88C4A]" />
+
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#96713C]">
                     {role || "Member"}
                   </span>
@@ -200,7 +227,11 @@ export default function Navbar() {
               href={dashboardHref}
               role="menuitem"
               onClick={closeMenus}
-              className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[#F8ECE9]"
+              className={`group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+                isDashboardActive
+                  ? "bg-[#F8ECE9]"
+                  : "hover:bg-[#F8ECE9]"
+              }`}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F9E5E5] text-[#C36E78] transition-colors group-hover:bg-[#F2D5D6]">
                 <LayoutDashboard size={17} />
@@ -210,6 +241,7 @@ export default function Navbar() {
                 <span className="block text-sm font-semibold text-[#44403C]">
                   Dashboard
                 </span>
+
                 <span className="mt-0.5 block text-[11px] text-[#A8A29E]">
                   Manage your account
                 </span>
@@ -225,7 +257,11 @@ export default function Navbar() {
               href="/dashboard/profile"
               role="menuitem"
               onClick={closeMenus}
-              className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[#F8ECE9]"
+              className={`group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+                isProfileActive
+                  ? "bg-[#F8ECE9]"
+                  : "hover:bg-[#F8ECE9]"
+              }`}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4EBDD] text-[#A88751] transition-colors group-hover:bg-[#EDE0CC]">
                 <Settings size={17} />
@@ -235,6 +271,7 @@ export default function Navbar() {
                 <span className="block text-sm font-semibold text-[#44403C]">
                   Profile Settings
                 </span>
+
                 <span className="mt-0.5 block text-[11px] text-[#A8A29E]">
                   Update your information
                 </span>
@@ -263,6 +300,7 @@ export default function Navbar() {
                 <span className="block text-sm font-semibold text-[#C56573]">
                   {isSigningOut ? "Signing Out..." : "Sign Out"}
                 </span>
+
                 <span className="mt-0.5 block text-[11px] text-[#B69A96]">
                   See you again soon
                 </span>
@@ -305,6 +343,7 @@ export default function Navbar() {
               stroke="#D97985"
               strokeWidth="2"
             />
+
             <circle
               cx="21"
               cy="17"
@@ -322,15 +361,40 @@ export default function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden items-center gap-9 md:flex">
-          {navLinks.map((link) => (
+          {navLinks.map((link) => {
+            const active = isActive(link.href);
+
+            return (
+              <Link
+                key={link.name}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={`relative py-2 text-sm font-medium transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-[2px] after:rounded-full after:bg-[#D97985] after:transition-all after:duration-300 ${
+                  active
+                    ? "text-[#C56573] after:w-full"
+                    : "text-[#57534E] after:w-0 hover:text-[#C56573] hover:after:w-full"
+                }`}
+              >
+                {link.name}
+              </Link>
+            );
+          })}
+
+          {/* Dashboard Navigation */}
+          {!isPending && session && (
             <Link
-              key={link.name}
-              href={link.href}
-              className="relative py-2 text-sm font-medium text-[#57534E] transition-colors duration-200 hover:text-[#C56573] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-[#D97985] after:transition-all after:duration-300 hover:after:w-full"
+              href={dashboardHref}
+              aria-current={isDashboardActive ? "page" : undefined}
+              className={`relative inline-flex items-center gap-2 py-2 text-sm font-semibold transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-[2px] after:rounded-full after:bg-[#D97985] after:transition-all after:duration-300 ${
+                isDashboardActive
+                  ? "text-[#C56573] after:w-full"
+                  : "text-[#57534E] after:w-0 hover:text-[#C56573] hover:after:w-full"
+              }`}
             >
-              {link.name}
+              <LayoutDashboard size={16} />
+              Dashboard
             </Link>
-          ))}
+          )}
         </div>
 
         {/* Desktop Actions */}
@@ -374,16 +438,25 @@ export default function Navbar() {
       {isMenuOpen && (
         <div className="border-t border-[#E9DED2] bg-[#FFFCF8] px-5 py-5 shadow-lg md:hidden">
           <div className="flex flex-col gap-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={closeMenus}
-                className="rounded-xl px-3 py-3 text-sm font-semibold text-[#57534E] transition-colors hover:bg-[#F8ECE9] hover:text-[#C56573]"
-              >
-                {link.name}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const active = isActive(link.href);
+
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={closeMenus}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-xl border-l-2 px-3 py-3 text-sm font-semibold transition-colors ${
+                    active
+                      ? "border-[#D97985] bg-[#F8ECE9] text-[#C56573]"
+                      : "border-transparent text-[#57534E] hover:bg-[#F8ECE9] hover:text-[#C56573]"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
 
             {!isPending &&
               (session ? (
@@ -395,30 +468,61 @@ export default function Navbar() {
                     <ProfileAvatar size="small" />
 
                     <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-[#A88751]">
+                        My Account
+                      </p>
+
                       <p className="truncate text-sm font-bold text-[#292524]">
                         {userName}
                       </p>
+
                       <p className="truncate text-xs text-[#78716C]">
                         {session.user.email}
                       </p>
                     </div>
                   </div>
 
+                  {/* Mobile Dashboard */}
                   <Link
                     href={dashboardHref}
                     onClick={closeMenus}
-                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-[#57534E] transition-colors hover:bg-[#F8ECE9]"
+                    aria-current={isDashboardActive ? "page" : undefined}
+                    className={`flex items-center gap-3 rounded-xl border-l-2 px-3 py-3 text-sm font-semibold transition-colors ${
+                      isDashboardActive
+                        ? "border-[#D97985] bg-[#F8ECE9] text-[#C56573]"
+                        : "border-transparent text-[#57534E] hover:bg-[#F8ECE9]"
+                    }`}
                   >
-                    <LayoutDashboard size={18} className="text-[#C36E78]" />
+                    <LayoutDashboard
+                      size={18}
+                      className={
+                        isDashboardActive
+                          ? "text-[#C56573]"
+                          : "text-[#C36E78]"
+                      }
+                    />
                     Dashboard
                   </Link>
 
+                  {/* Mobile Profile Settings */}
                   <Link
                     href="/dashboard/profile"
                     onClick={closeMenus}
-                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-[#57534E] transition-colors hover:bg-[#F8ECE9]"
+                    aria-current={isProfileActive ? "page" : undefined}
+                    className={`flex items-center gap-3 rounded-xl border-l-2 px-3 py-3 text-sm font-medium transition-colors ${
+                      isProfileActive
+                        ? "border-[#D97985] bg-[#F8ECE9] text-[#C56573]"
+                        : "border-transparent text-[#57534E] hover:bg-[#F8ECE9]"
+                    }`}
                   >
-                    <UserRound size={18} className="text-[#A88751]" />
+                    <UserRound
+                      size={18}
+                      className={
+                        isProfileActive
+                          ? "text-[#C56573]"
+                          : "text-[#A88751]"
+                      }
+                    />
                     Profile Settings
                   </Link>
 
