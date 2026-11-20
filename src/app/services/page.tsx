@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BadgeCheck } from "lucide-react";
 
 interface Vendor {
@@ -31,6 +31,15 @@ interface ServicesResponse {
   services: Service[];
 }
 
+const CATEGORIES = [
+  "Photography & Videography",
+  "Wedding Venues",
+  "Decoration & Florist",
+  "Catering Services",
+  "Makeup & Styling",
+  "Wedding Fashion",
+];
+
 export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -42,10 +51,29 @@ export default function ServicesPage() {
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
 
+  // Read category from URL and handle browser navigation.
   useEffect(() => {
-    const controller = new AbortController();
+    const syncCategoryFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const selectedCategory = params.get("category") || "";
 
-    const fetchServices = async () => {
+      setCategory(
+        CATEGORIES.includes(selectedCategory) ? selectedCategory : "",
+      );
+    };
+
+    syncCategoryFromUrl();
+
+    window.addEventListener("popstate", syncCategoryFromUrl);
+
+    return () => {
+      window.removeEventListener("popstate", syncCategoryFromUrl);
+    };
+  }, []);
+
+  // Fetch services according to selected filters.
+  const fetchServices = useCallback(
+    async (signal: AbortSignal) => {
       try {
         setLoading(true);
         setError("");
@@ -75,7 +103,8 @@ export default function ServicesPage() {
         const response = await fetch(
           `${baseUrl}/services?${params.toString()}`,
           {
-            signal: controller.signal,
+            signal,
+            cache: "no-store",
           },
         );
 
@@ -85,7 +114,7 @@ export default function ServicesPage() {
 
         const data: ServicesResponse = await response.json();
 
-        if (!data.success) {
+        if (!data.success || !Array.isArray(data.services)) {
           throw new Error("Unable to load services.");
         }
 
@@ -96,21 +125,61 @@ export default function ServicesPage() {
           setServices([]);
         }
       } finally {
-        if (!controller.signal.aborted) {
+        if (!signal.aborted) {
           setLoading(false);
         }
       }
-    };
+    },
+    [search, category, location, sort],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
 
     const timer = setTimeout(() => {
-      void fetchServices();
+      void fetchServices(controller.signal);
     }, 350);
 
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [search, category, location, sort, retryCount]);
+  }, [fetchServices, retryCount]);
+
+  // Update category and URL together.
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (value) {
+      params.set("category", value);
+    } else {
+      params.delete("category");
+    }
+
+    const queryString = params.toString();
+
+    const newUrl = queryString
+      ? `${window.location.pathname}?${queryString}`
+      : window.location.pathname;
+
+    window.history.replaceState(null, "", newUrl);
+  };
+
+  // Clear all filters.
+  const handleClearFilters = () => {
+    setSearch("");
+    setCategory("");
+    setLocation("");
+    setSort("newest");
+
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname,
+    );
+  };
 
   return (
     <main className="min-h-screen bg-[#FAF7F2]">
@@ -165,18 +234,16 @@ export default function ServicesPage() {
               <select
                 id="service-category"
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="w-full rounded-xl border border-[#E8DED5] bg-[#FFFCF9] px-4 py-3 text-sm outline-none transition focus:border-[#D97985] focus:ring-2 focus:ring-[#D97985]/10"
               >
                 <option value="">All Categories</option>
-                <option value="Photography & Videography">
-                  Photography & Videography
-                </option>
-                <option value="Wedding Planning">Wedding Planning</option>
-                <option value="Venue">Venue</option>
-                <option value="Catering">Catering</option>
-                <option value="Decoration">Decoration</option>
-                <option value="Makeup & Beauty">Makeup & Beauty</option>
+
+                {CATEGORIES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -231,7 +298,7 @@ export default function ServicesPage() {
           <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-serif text-2xl font-bold text-[#3D3434]">
-                Wedding Services
+                {category || "Wedding Services"}
               </h2>
 
               <p className="mt-1 text-sm text-[#786D6D]">
@@ -276,6 +343,7 @@ export default function ServicesPage() {
               <p className="mt-2 text-sm text-red-500">{error}</p>
 
               <button
+                type="button"
                 onClick={() => setRetryCount((previous) => previous + 1)}
                 className="mt-5 rounded-xl bg-[#D97985] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#c96875]"
               >
@@ -299,12 +367,8 @@ export default function ServicesPage() {
               </p>
 
               <button
-                onClick={() => {
-                  setSearch("");
-                  setCategory("");
-                  setLocation("");
-                  setSort("newest");
-                }}
+                type="button"
+                onClick={handleClearFilters}
                 className="mt-6 rounded-xl bg-[#D97985] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#c96875]"
               >
                 Clear Filters
@@ -334,6 +398,7 @@ export default function ServicesPage() {
                           src={serviceImage}
                           alt={service.serviceName}
                           fill
+                          unoptimized
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           className="object-cover transition duration-500 group-hover:scale-105"
                         />
