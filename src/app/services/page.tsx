@@ -4,11 +4,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BadgeCheck } from "lucide-react";
 
 interface Vendor {
   name?: string;
   businessName?: string;
   image?: string;
+  subscriptionPlan?: "free" | "premium";
 }
 
 interface Service {
@@ -33,10 +35,12 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
+  const [sort, setSort] = useState("newest");
 
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +69,8 @@ export default function ServicesPage() {
         if (location.trim()) {
           params.set("location", location.trim());
         }
+
+        params.set("sort", sort);
 
         const response = await fetch(
           `${baseUrl}/services?${params.toString()}`,
@@ -104,7 +110,7 @@ export default function ServicesPage() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [search, category, location]);
+  }, [search, category, location, sort, retryCount]);
 
   return (
     <main className="min-h-screen bg-[#FAF7F2]">
@@ -127,7 +133,7 @@ export default function ServicesPage() {
 
         {/* Search and Filters */}
         <div className="rounded-2xl border border-[#EDE3D8] bg-white p-5 shadow-sm sm:p-7">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
             {/* Search */}
             <div>
               <label
@@ -192,6 +198,31 @@ export default function ServicesPage() {
                 className="w-full rounded-xl border border-[#E8DED5] bg-[#FFFCF9] px-4 py-3 text-sm outline-none transition focus:border-[#D97985] focus:ring-2 focus:ring-[#D97985]/10"
               />
             </div>
+
+            {/* Price Sorting */}
+            <div>
+              <label
+                htmlFor="service-sort"
+                className="mb-2 block text-sm font-semibold text-[#3D3434]"
+              >
+                Sort By Price
+              </label>
+
+              <select
+                id="service-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="w-full rounded-xl border border-[#E8DED5] bg-[#FFFCF9] px-4 py-3 text-sm outline-none transition focus:border-[#D97985] focus:ring-2 focus:ring-[#D97985]/10"
+              >
+                <option value="newest">Newest First</option>
+                <option value="price-low-to-high">
+                  Price: Low to High
+                </option>
+                <option value="price-high-to-low">
+                  Price: High to Low
+                </option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -245,10 +276,7 @@ export default function ServicesPage() {
               <p className="mt-2 text-sm text-red-500">{error}</p>
 
               <button
-                onClick={() => {
-                  setSearch((previous) => `${previous}`);
-                  setLocation((previous) => `${previous}`);
-                }}
+                onClick={() => setRetryCount((previous) => previous + 1)}
                 className="mt-5 rounded-xl bg-[#D97985] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#c96875]"
               >
                 Try Again
@@ -275,6 +303,7 @@ export default function ServicesPage() {
                   setSearch("");
                   setCategory("");
                   setLocation("");
+                  setSort("newest");
                 }}
                 className="mt-6 rounded-xl bg-[#D97985] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#c96875]"
               >
@@ -289,6 +318,9 @@ export default function ServicesPage() {
               {services.map((service) => {
                 const serviceImage =
                   service.image || service.images?.[0];
+
+                const isPremium =
+                  service.vendor?.subscriptionPlan === "premium";
 
                 return (
                   <article
@@ -342,11 +374,23 @@ export default function ServicesPage() {
                             Provided by
                           </p>
 
-                          <p className="truncate text-sm font-semibold text-[#3D3434]">
-                            {service.vendor?.businessName ||
-                              service.vendor?.name ||
-                              "Wedding Professional"}
-                          </p>
+                          <div className="mt-1 flex min-w-0 items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-[#3D3434]">
+                              {service.vendor?.businessName ||
+                                service.vendor?.name ||
+                                "Wedding Professional"}
+                            </p>
+
+                            {isPremium && (
+                              <span
+                                title="Premium Vendor"
+                                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#E8C66A] bg-[#FFF7DF] px-2 py-1 text-[10px] font-bold text-[#A77916]"
+                              >
+                                <BadgeCheck size={12} />
+                                Premium
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <Link
