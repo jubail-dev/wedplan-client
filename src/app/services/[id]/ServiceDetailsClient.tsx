@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  BadgeCheck,
   CalendarDays,
   MapPin,
   ShieldCheck,
@@ -17,6 +18,7 @@ interface Vendor {
   name?: string;
   businessName?: string;
   image?: string;
+  subscriptionPlan?: "free" | "premium";
 }
 
 interface Service {
@@ -111,6 +113,9 @@ export default function ServiceDetailsClient() {
         ? [service.image]
         : []
     : [];
+
+  const isPremium =
+    service?.vendor?.subscriptionPlan === "premium";
 
   if (loading) {
     return (
@@ -285,12 +290,24 @@ export default function ServiceDetailsClient() {
                   </div>
                 )}
 
-                <div>
-                  <p className="font-semibold text-[#3D3434]">
-                    {service.vendor?.businessName ||
-                      service.vendor?.name ||
-                      "Wedding Professional"}
-                  </p>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-[#3D3434]">
+                      {service.vendor?.businessName ||
+                        service.vendor?.name ||
+                        "Wedding Professional"}
+                    </p>
+
+                    {isPremium && (
+                      <span
+                        title="Premium Vendor"
+                        className="inline-flex items-center gap-1 rounded-full border border-[#E8C66A] bg-[#FFF7DF] px-2 py-1 text-[10px] font-bold text-[#A77916]"
+                      >
+                        <BadgeCheck size={12} />
+                        Premium
+                      </span>
+                    )}
+                  </div>
 
                   <p className="mt-1 text-sm text-[#786D6D]">
                     Verified Service Provider
