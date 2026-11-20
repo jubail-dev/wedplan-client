@@ -44,7 +44,7 @@ const menuItems = [
   },
   {
     label: "Profile Settings",
-    href: "/dashboard/vendor/profile",
+    href: "/dashboard/profile",
     icon: UserRound,
   },
 ];

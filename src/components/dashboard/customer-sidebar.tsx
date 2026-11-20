@@ -28,7 +28,7 @@ const navigation = [
   },
   {
     title: "Profile Settings",
-    href: "/dashboard/customer/profile",
+    href: "/dashboard/profile",
     icon: Settings,
   },
 ];
