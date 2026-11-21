@@ -1,4 +1,3 @@
-
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { MongoClient } from "mongodb";
@@ -14,12 +13,9 @@ const globalForMongo = globalThis as typeof globalThis & {
   mongoClient?: MongoClient;
 };
 
-const mongoClient =
-  globalForMongo.mongoClient ?? new MongoClient(MONGODB_URI);
+const mongoClient = globalForMongo.mongoClient ?? new MongoClient(MONGODB_URI);
 
-if (process.env.NODE_ENV !== "production") {
-  globalForMongo.mongoClient = mongoClient;
-}
+globalForMongo.mongoClient = mongoClient;
 
 const db = mongoClient.db("wedplan");
 
@@ -27,9 +23,7 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
 
-  trustedOrigins: [
-    "https://wedplan-client-sigma.vercel.app",
-  ],
+  trustedOrigins: ["https://wedplan-client-sigma.vercel.app"],
 
   user: {
     additionalFields: {
