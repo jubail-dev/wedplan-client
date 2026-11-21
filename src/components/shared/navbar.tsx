@@ -46,12 +46,8 @@ export default function Navbar() {
         ? "/dashboard/vendor"
         : "/dashboard/customer";
 
-  // Check whether a navigation link is active
   const isActive = (href: string) => {
-    if (href === "/") {
-      return pathname === "/";
-    }
-
+    if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -61,7 +57,6 @@ export default function Navbar() {
 
   const isProfileActive = pathname === "/dashboard/profile";
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!isProfileOpen) return;
 
@@ -89,13 +84,11 @@ export default function Navbar() {
     };
   }, [isProfileOpen]);
 
-  // Close menus after navigation
   const closeMenus = () => {
     setIsMenuOpen(false);
     setIsProfileOpen(false);
   };
 
-  // Sign out
   const handleSignOut = async () => {
     setIsSigningOut(true);
 
@@ -122,12 +115,8 @@ export default function Navbar() {
     }
   };
 
-  // Profile Avatar
-  const ProfileAvatar = ({
-    size = "normal",
-  }: {
-    size?: "normal" | "small";
-  }) => {
+  // Profile Avatar Helper
+  const renderProfileAvatar = (size: "normal" | "small" = "normal") => {
     const dimension = size === "small" ? "h-10 w-10" : "h-11 w-11";
 
     return (
@@ -152,8 +141,8 @@ export default function Navbar() {
     );
   };
 
-  // Profile Dropdown
-  const ProfileDropdown = () => (
+  // Profile Dropdown Helper
+  const renderProfileDropdown = () => (
     <div ref={profileRef} className="relative">
       <button
         type="button"
@@ -167,7 +156,7 @@ export default function Navbar() {
             : "border-[#E9DED2] bg-white/70 hover:border-[#D97985]/50 hover:bg-white hover:shadow-md"
         }`}
       >
-        <ProfileAvatar />
+        {renderProfileAvatar()}
 
         <span className="hidden text-left sm:block">
           <span className="block text-[10px] font-medium uppercase tracking-wider text-[#A88751]">
@@ -198,7 +187,7 @@ export default function Navbar() {
 
             <div className="relative flex items-center gap-3">
               <div className="rounded-full bg-white p-1 shadow-md">
-                <ProfileAvatar />
+                {renderProfileAvatar()}
               </div>
 
               <div className="min-w-0">
@@ -212,7 +201,6 @@ export default function Navbar() {
 
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#D9B987]/40 bg-white/80 px-2.5 py-1">
                   <Sparkles size={11} className="text-[#B88C4A]" />
-
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#96713C]">
                     {role || "Member"}
                   </span>
@@ -241,7 +229,6 @@ export default function Navbar() {
                 <span className="block text-sm font-semibold text-[#44403C]">
                   Dashboard
                 </span>
-
                 <span className="mt-0.5 block text-[11px] text-[#A8A29E]">
                   Manage your account
                 </span>
@@ -271,7 +258,6 @@ export default function Navbar() {
                 <span className="block text-sm font-semibold text-[#44403C]">
                   Profile Settings
                 </span>
-
                 <span className="mt-0.5 block text-[11px] text-[#A8A29E]">
                   Update your information
                 </span>
@@ -300,7 +286,6 @@ export default function Navbar() {
                 <span className="block text-sm font-semibold text-[#C56573]">
                   {isSigningOut ? "Signing Out..." : "Sign Out"}
                 </span>
-
                 <span className="mt-0.5 block text-[11px] text-[#B69A96]">
                   See you again soon
                 </span>
@@ -343,7 +328,6 @@ export default function Navbar() {
               stroke="#D97985"
               strokeWidth="2"
             />
-
             <circle
               cx="21"
               cy="17"
@@ -401,7 +385,7 @@ export default function Navbar() {
         <div className="hidden items-center gap-5 md:flex">
           {!isPending &&
             (session ? (
-              <ProfileDropdown />
+              renderProfileDropdown()
             ) : (
               <>
                 <Link
@@ -465,17 +449,15 @@ export default function Navbar() {
 
                   {/* Mobile Profile Information */}
                   <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#FDF2EF] to-[#F7EBDD] p-3">
-                    <ProfileAvatar size="small" />
+                    {renderProfileAvatar("small")}
 
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-medium uppercase tracking-wider text-[#A88751]">
                         My Account
                       </p>
-
                       <p className="truncate text-sm font-bold text-[#292524]">
                         {userName}
                       </p>
-
                       <p className="truncate text-xs text-[#78716C]">
                         {session.user.email}
                       </p>

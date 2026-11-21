@@ -485,7 +485,10 @@ export default function AddServicePage() {
                     Service Category <span className="text-[#D97985]">*</span>
                   </label>
 
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select
+                    value={category}
+                    onValueChange={(value) => setCategory(value ?? "")}
+                  >
                     <SelectTrigger
                       id="category"
                       className="h-11 w-full border-[#E9DED2] bg-[#FFFEFC] focus:ring-[#D97985]"
