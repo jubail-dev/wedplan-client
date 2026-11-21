@@ -4,7 +4,22 @@ import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { MongoClient } from "mongodb";
 import { jwt } from "better-auth/plugins";
 
-const mongoClient = new MongoClient(process.env.MONGODB_URI!);
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error("MONGODB_URI is not configured");
+}
+
+const globalForMongo = globalThis as typeof globalThis & {
+  mongoClient?: MongoClient;
+};
+
+const mongoClient =
+  globalForMongo.mongoClient ?? new MongoClient(MONGODB_URI);
+
+if (process.env.NODE_ENV !== "production") {
+  globalForMongo.mongoClient = mongoClient;
+}
 
 const db = mongoClient.db("wedplan");
 
@@ -12,10 +27,9 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
 
-   trustedOrigins: [
+  trustedOrigins: [
     "https://wedplan-client-sigma.vercel.app",
   ],
-
 
   user: {
     additionalFields: {
@@ -53,7 +67,6 @@ export const auth = betterAuth({
     client: mongoClient,
   }),
 
-  // Public registration cannot create an admin account.
   databaseHooks: {
     user: {
       create: {
