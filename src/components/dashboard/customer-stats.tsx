@@ -74,7 +74,7 @@ export default function CustomerStats() {
         }
 
         const response = await fetch(
-          "http://localhost:5000/customer/dashboard/stats",
+          `${process.env.NEXT_PUBLIC_BASE_SERVER_URL}/customer/dashboard/stats`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
