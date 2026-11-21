@@ -10,12 +10,28 @@ if (!MONGODB_URI) {
 }
 
 const globalForMongo = globalThis as typeof globalThis & {
-  mongoClient?: MongoClient;
+  _mongoClient?: MongoClient;
+  _mongoClientPromise?: Promise<MongoClient>;
 };
 
-const mongoClient = globalForMongo.mongoClient ?? new MongoClient(MONGODB_URI);
+const mongoClient =
+  globalForMongo._mongoClient ??
+  new MongoClient(MONGODB_URI, {
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+  });
 
-globalForMongo.mongoClient = mongoClient;
+const clientPromise =
+  globalForMongo._mongoClientPromise ?? mongoClient.connect();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForMongo._mongoClient = mongoClient;
+  globalForMongo._mongoClientPromise = clientPromise;
+} else {
+  globalForMongo._mongoClient = mongoClient;
+  globalForMongo._mongoClientPromise = clientPromise;
+}
 
 const db = mongoClient.db("wedplan");
 
