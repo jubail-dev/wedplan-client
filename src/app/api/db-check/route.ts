@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
 
-export const runtime = "nodejs";
 
 export async function GET() {
   const uri = process.env.MONGODB_URI;
