@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -49,13 +48,29 @@ export default function SignInPage() {
 
       const role = result.data?.user?.role;
 
+      const callbackURL = new URLSearchParams(window.location.search).get(
+        "callbackURL",
+      );
+
+      const safeCallbackURL =
+        callbackURL &&
+        callbackURL.startsWith("/") &&
+        !callbackURL.startsWith("//") &&
+        !callbackURL.includes("\\")
+          ? callbackURL
+          : null;
+
+      const redirectURL =
+        safeCallbackURL ||
+        (role === "admin"
+          ? "/dashboard/admin"
+          : role === "vendor"
+            ? "/dashboard/vendor"
+            : "/dashboard/customer");
+
       toast.success("Welcome back to WedPlan!");
 
-      router.push(
-        role === "vendor"
-          ? "/dashboard/vendor"
-          : "/dashboard/customer",
-      );
+      router.push(redirectURL);
       router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -86,7 +101,6 @@ export default function SignInPage() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:py-14">
       <div className="grid w-full max-w-6xl overflow-hidden rounded-3xl border border-[#E9DED2] bg-white shadow-[0_20px_70px_rgba(80,50,40,0.10)] lg:min-h-[680px] lg:grid-cols-2">
-
         {/* Left Visual Section */}
         <section
           className="relative hidden bg-cover bg-center lg:block"
@@ -116,8 +130,8 @@ export default function SignInPage() {
               </h1>
 
               <p className="mt-5 text-base leading-7 text-white/85">
-                Sign in to discover trusted wedding professionals and
-                continue planning your perfect celebration.
+                Sign in to discover trusted wedding professionals and continue
+                planning your perfect celebration.
               </p>
             </div>
 
@@ -130,11 +144,7 @@ export default function SignInPage() {
         {/* Right Login Form */}
         <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:px-14">
           <div className="w-full max-w-md">
-
-            <Link
-              href="/"
-              className="mb-9 flex items-center gap-2 lg:hidden"
-            >
+            <Link href="/" className="mb-9 flex items-center gap-2 lg:hidden">
               <Heart className="size-7 fill-[#D97985] text-[#D97985]" />
               <span className="font-heading text-2xl font-semibold text-[#292524]">
                 WedPlan
@@ -151,8 +161,7 @@ export default function SignInPage() {
               </h2>
 
               <p className="mt-3 text-sm leading-6 text-[#78716C]">
-                Welcome back! Enter your details to access your WedPlan
-                account.
+                Welcome back! Enter your details to access your WedPlan account.
               </p>
             </div>
 
@@ -208,7 +217,9 @@ export default function SignInPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     className="absolute top-1/2 right-4 -translate-y-1/2 text-[#A8A29E] transition hover:text-[#D97985]"
                   >
                     {showPassword ? (
@@ -257,10 +268,24 @@ export default function SignInPage() {
                 <LoaderCircle className="size-5 animate-spin" />
               ) : (
                 <svg viewBox="0 0 48 48" className="size-5" aria-hidden="true">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" transform="translate(0 6)" />
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.73 7.18l7.73 6C44.45 37.91 46.98 31.81 46.98 24.55Z" />
-                  <path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z" transform="translate(0 0)" />
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.14 1.44-4.88 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" />
+                  <path
+                    fill="#EA4335"
+                    d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"
+                    transform="translate(0 6)"
+                  />
+                  <path
+                    fill="#4285F4"
+                    d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.73 7.18l7.73 6C44.45 37.91 46.98 31.81 46.98 24.55Z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z"
+                    transform="translate(0 0)"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.14 1.44-4.88 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z"
+                  />
                 </svg>
               )}
               Continue with Google
@@ -275,7 +300,6 @@ export default function SignInPage() {
                 Create Account
               </Link>
             </p>
-
           </div>
         </section>
       </div>
