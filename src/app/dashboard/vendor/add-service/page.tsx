@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -41,6 +42,7 @@ import { Button } from "@/components/ui/button";
 interface UploadResponse {
   success?: boolean;
   imageUrl?: string;
+  imageUrls?: string[];
   message?: string;
 }
 
@@ -74,8 +76,8 @@ export default function AddServicePage() {
   const [category, setCategory] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [imageError, setImageError] = useState("");
 
   // Subscription and service usage
@@ -204,62 +206,72 @@ export default function AddServicePage() {
     void loadVendorStats();
   };
 
-  // Handle image selection
-  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
+  // Handle multiple image selection
+  const handleImageChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
 
-    setImageError("");
+    event.target.value = "";
 
-    if (!file) {
-      setImageFile(null);
-      setImagePreview("");
-      return;
-    }
+    if (selectedFiles.length === 0) return;
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
-    if (!allowedTypes.includes(file.type)) {
+    const invalidFile = selectedFiles.find(
+      (file) => !allowedTypes.includes(file.type),
+    );
+
+    if (invalidFile) {
       setImageError("Only JPG, PNG and WEBP images are allowed.");
-      event.target.value = "";
-      setImageFile(null);
-      setImagePreview("");
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setImageError("Image size must be less than 5MB.");
-      event.target.value = "";
-      setImageFile(null);
-      setImagePreview("");
+    const oversizedFile = selectedFiles.find(
+      (file) => file.size > 5 * 1024 * 1024,
+    );
+
+    if (oversizedFile) {
+      setImageError("Each image must be less than 5MB.");
       return;
     }
 
-    setImageFile(file);
-
-    const reader = new FileReader();
-
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        setImagePreview(reader.result);
-      }
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  // Remove selected image
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview("");
     setImageError("");
 
-    const input = document.getElementById(
-      "serviceImage",
-    ) as HTMLInputElement | null;
+    const previews = await Promise.all(
+      selectedFiles.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
 
-    if (input) {
-      input.value = "";
-    }
+            reader.onloadend = () => {
+              resolve(
+                typeof reader.result === "string" ? reader.result : "",
+              );
+            };
+
+            reader.onerror = () => resolve("");
+
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+
+    setImageFiles((previous) => [...previous, ...selectedFiles]);
+    setImagePreviews((previous) => [...previous, ...previews]);
+  };
+
+  // Remove individual image
+  const removeImage = (index: number) => {
+    setImageFiles((previous) =>
+      previous.filter((_, i) => i !== index),
+    );
+
+    setImagePreviews((previous) =>
+      previous.filter((_, i) => i !== index),
+    );
+
+    setImageError("");
   };
 
   // Submit service
@@ -305,7 +317,7 @@ export default function AddServicePage() {
       !location.trim() ||
       !Number.isFinite(price) ||
       price <= 0 ||
-      !imageFile
+      imageFiles.length === 0
     ) {
       toast.error("Please complete all required fields.");
       return;
@@ -334,9 +346,12 @@ export default function AddServicePage() {
         throw new Error("Please sign in again to continue.");
       }
 
-      // Step 2: Upload image
+      // Step 2: Upload multiple images
       const uploadFormData = new FormData();
-      uploadFormData.append("image", imageFile);
+
+      imageFiles.forEach((file) => {
+        uploadFormData.append("images", file);
+      });
 
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
@@ -348,7 +363,7 @@ export default function AddServicePage() {
       if (
         !uploadResponse.ok ||
         !uploadResult.success ||
-        !uploadResult.imageUrl
+        !uploadResult.imageUrls?.length
       ) {
         throw new Error(uploadResult.message || "Image upload failed.");
       }
@@ -366,7 +381,7 @@ export default function AddServicePage() {
           description: description.trim(),
           price,
           location: location.trim(),
-          imageUrl: uploadResult.imageUrl,
+          imageUrls: uploadResult.imageUrls,
         }),
       });
 
@@ -379,7 +394,9 @@ export default function AddServicePage() {
       // Step 4: Reset form
       form.reset();
       setCategory("");
-      removeImage();
+      setImageFiles([]);
+      setImagePreviews([]);
+      setImageError("");
 
       toast.success(
         serviceResult.message || "Service submitted for admin approval!",
@@ -601,87 +618,95 @@ export default function AddServicePage() {
 
               <div className="border-t border-dashed border-[#E9DED2]" />
 
-              {/* Image Upload */}
+              {/* Multiple Image Upload */}
               <section className="space-y-5">
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-800">
                     <ImageIcon size={17} className="text-[#D97985]" />
-                    Service Image
+                    Service Images
                     <span className="text-[#D97985]">*</span>
                   </h3>
 
                   <p className="mt-1 text-xs text-stone-400">
-                    Upload a beautiful image that represents your service.
+                    Upload multiple images to showcase your wedding service.
                   </p>
                 </div>
 
-                {!imagePreview ? (
-                  <label
-                    htmlFor="serviceImage"
-                    className="flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#E9C8CE] bg-[#FFFAFA] px-5 py-8 text-center transition hover:border-[#D97985] hover:bg-[#FFF4F5]"
-                  >
-                    <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-[#FCECEF] text-[#D97985]">
-                      <UploadCloud size={27} />
-                    </div>
-
-                    <p className="text-sm font-semibold text-stone-700">
-                      Click to upload your service image
-                    </p>
-
-                    <p className="mt-2 text-xs text-stone-400">
-                      JPG, PNG or WEBP · Maximum 5MB
-                    </p>
-
-                    <span className="mt-4 rounded-lg bg-[#D97985] px-5 py-2.5 text-xs font-semibold text-white">
-                      Choose Image
-                    </span>
-                  </label>
-                ) : (
-                  <div className="relative overflow-hidden rounded-2xl border border-[#E9DED2] bg-[#FFFAFA] p-3">
-                    <div className="relative h-64 w-full overflow-hidden rounded-xl sm:h-80">
-                      <Image
-                        src={imagePreview}
-                        alt="Selected service image preview"
-                        fill
-                        unoptimized
-                        className="object-cover"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 px-2 pt-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-stone-700">
-                          {imageFile?.name}
-                        </p>
-                        <p className="text-xs text-stone-400">
-                          {imageFile
-                            ? `${(imageFile.size / 1024 / 1024).toFixed(2)} MB`
-                            : ""}
-                        </p>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={removeImage}
-                        className="shrink-0 border-[#E9DED2] text-stone-600 hover:bg-[#FCECEF] hover:text-[#B95F6D]"
-                      >
-                        <X size={15} />
-                        Remove
-                      </Button>
-                    </div>
+                <label
+                  htmlFor="serviceImage"
+                  className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#E9C8CE] bg-[#FFFAFA] px-5 py-8 text-center transition hover:border-[#D97985] hover:bg-[#FFF4F5]"
+                >
+                  <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-[#FCECEF] text-[#D97985]">
+                    <UploadCloud size={27} />
                   </div>
-                )}
+
+                  <p className="text-sm font-semibold text-stone-700">
+                    Click to upload service images
+                  </p>
+
+                  <p className="mt-2 text-xs text-stone-400">
+                    JPG, PNG or WEBP · Maximum 5MB per image
+                  </p>
+
+                  <span className="mt-4 rounded-lg bg-[#D97985] px-5 py-2.5 text-xs font-semibold text-white">
+                    Choose Images
+                  </span>
+                </label>
 
                 <Input
                   id="serviceImage"
                   name="serviceImage"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
+                  multiple
                   onChange={handleImageChange}
                   className="hidden"
                 />
+
+                {imagePreviews.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {imagePreviews.map((preview, index) => (
+                      <div
+                        key={`${imageFiles[index]?.name}-${index}`}
+                        className="overflow-hidden rounded-xl border border-[#E9DED2] bg-[#FFFAFA] p-2"
+                      >
+                        <div className="relative h-36 w-full overflow-hidden rounded-lg">
+                          <Image
+                            src={preview}
+                            alt={`Service image ${index + 1}`}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium text-stone-700">
+                              {imageFiles[index]?.name}
+                            </p>
+
+                            <p className="text-xs text-stone-400">
+                              {imageFiles[index]
+                                ? `${(imageFiles[index].size / 1024 / 1024).toFixed(2)} MB`
+                                : ""}
+                            </p>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => removeImage(index)}
+                            className="size-8 shrink-0 border-[#E9DED2] text-stone-600 hover:bg-[#FCECEF] hover:text-[#B95F6D]"
+                          >
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {imageError && (
                   <p className="text-sm text-red-600">{imageError}</p>
@@ -803,7 +828,7 @@ export default function AddServicePage() {
                 {[
                   "Provide accurate service information and pricing.",
                   "Choose the correct wedding service category.",
-                  "Upload a clear and relevant service image.",
+                  "Upload clear and relevant service images.",
                   "Wait for admin approval before your service goes live.",
                 ].map((item) => (
                   <div key={item} className="flex gap-3">

@@ -4,27 +4,43 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const image = formData.get("image");
 
-    if (!(image instanceof File)) {
+    const multipleImages = formData.getAll("images");
+    const singleImage = formData.get("image");
+
+    const rawImages =
+      multipleImages.length > 0
+        ? multipleImages
+        : singleImage
+          ? [singleImage]
+          : [];
+
+    if (
+      rawImages.length === 0 ||
+      !rawImages.every((image): image is File => image instanceof File)
+    ) {
       return NextResponse.json(
-        { message: "Image file is required." },
+        { message: "At least one valid image is required." },
         { status: 400 },
       );
     }
 
-    if (!image.type.startsWith("image/")) {
-      return NextResponse.json(
-        { message: "Only image files are allowed." },
-        { status: 400 },
-      );
-    }
+    const images: File[] = rawImages;
 
-    if (image.size > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { message: "Image size must be less than 5MB." },
-        { status: 400 },
-      );
+    for (const image of images) {
+      if (!image.type.startsWith("image/")) {
+        return NextResponse.json(
+          { message: "Only image files are allowed." },
+          { status: 400 },
+        );
+      }
+
+      if (image.size > 5 * 1024 * 1024) {
+        return NextResponse.json(
+          { message: "Each image must be less than 5MB." },
+          { status: 400 },
+        );
+      }
     }
 
     const apiKey = process.env.IMGBB_API_KEY;
@@ -36,29 +52,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const uploadData = new FormData();
-    uploadData.append("image", image);
+    const imageUrls: string[] = [];
 
-    const response = await fetch(
-      `https://api.imgbb.com/1/upload?key=${apiKey}`,
-      {
-        method: "POST",
-        body: uploadData,
-      },
-    );
+    for (const image of images) {
+      const uploadData = new FormData();
+      uploadData.append("image", image);
 
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      return NextResponse.json(
-        { message: "Image upload failed." },
-        { status: 502 },
+      const response = await fetch(
+        `https://api.imgbb.com/1/upload?key=${apiKey}`,
+        {
+          method: "POST",
+          body: uploadData,
+        },
       );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        return NextResponse.json(
+          { message: "Image upload failed." },
+          { status: 502 },
+        );
+      }
+
+      imageUrls.push(result.data.display_url);
     }
 
     return NextResponse.json({
       success: true,
-      imageUrl: result.data.display_url,
+      imageUrls,
+      imageUrl: imageUrls[0],
     });
   } catch {
     return NextResponse.json(
