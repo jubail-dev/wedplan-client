@@ -358,11 +358,11 @@ export default function CustomerBookingsPage() {
                           </div>
                         )}
 
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-xs text-[#A8A29E]">
                             Vendor
                           </p>
-                          <p className="text-sm font-medium text-[#44403C]">
+                          <p className="truncate text-sm font-medium text-[#44403C]">
                             {booking.vendor?.businessName ||
                               booking.vendor?.name ||
                               "Vendor Information Unavailable"}

@@ -30,7 +30,7 @@ export default async function AdminDashboardLayout({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] flex-1 bg-[#FAF7F2]">
+    <div className="flex min-h-[calc(100vh-5rem)] flex-1 flex-col bg-[#FAF7F2] lg:flex-row">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">

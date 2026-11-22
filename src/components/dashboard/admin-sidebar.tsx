@@ -100,7 +100,7 @@ export default function AdminSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-40 flex size-10 items-center justify-center rounded-xl border border-[#E9DED2] bg-white text-[#57534E] shadow-sm lg:hidden"
+        className="sticky top-20 z-40 mb-4 ml-4 flex size-10 items-center justify-center rounded-xl border border-[#E9DED2] bg-white text-[#57534E] shadow-sm lg:hidden"
         aria-label="Open dashboard menu"
       >
         <Menu className="size-5" />

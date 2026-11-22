@@ -428,7 +428,7 @@ export default function ServicesPage() {
                           ৳{service.price.toLocaleString("en-BD")}
                         </p>
 
-                        <p className="text-sm text-[#786D6D]">
+                        <p className="min-w-0 truncate text-sm text-[#786D6D]">
                           📍 {service.location}
                         </p>
                       </div>

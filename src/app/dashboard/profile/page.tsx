@@ -222,7 +222,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-4 sm:px-6">
       <div>
         <p className="text-sm font-medium text-[#B98B5F]">
           ACCOUNT SETTINGS

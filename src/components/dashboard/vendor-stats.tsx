@@ -175,13 +175,13 @@ export default function VendorStats() {
         })}
       </div>
 
-      <div className="flex items-center justify-between rounded-2xl border border-[#E9DED2] bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E9DED2] bg-white p-5 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="rounded-xl bg-[#F1E3C8] p-3 text-[#9A7135]">
             <Crown size={23} />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <h3 className="font-semibold text-[#292524]">
               Current Subscription Plan
             </h3>

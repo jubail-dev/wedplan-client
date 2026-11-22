@@ -239,7 +239,7 @@ export default function HeroSection() {
             {/* Heading */}
             <motion.h1
               variants={reveal}
-              className="max-w-[680px] font-heading text-[3.5rem] font-medium leading-[1.06] tracking-[-0.065em] text-[#382D29] sm:text-7xl lg:text-[6rem] xl:text-[6.7rem]"
+              className="max-w-[680px] font-heading text-[2.75rem] font-medium leading-[1.06] tracking-[-0.065em] text-[#382D29] sm:text-7xl lg:text-[6rem] xl:text-[6.7rem]"
             >
               Where your
 

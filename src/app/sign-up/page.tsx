@@ -488,7 +488,7 @@ export default function SignUpPage() {
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[#57534E]">
+                    <p className="truncate text-sm font-semibold text-[#57534E]">
                       {imageFile ? imageFile.name : "Upload your photo"}
                     </p>
                     <p className="mt-1 text-xs text-[#A8A29E]">

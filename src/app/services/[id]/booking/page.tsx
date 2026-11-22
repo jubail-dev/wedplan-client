@@ -447,8 +447,8 @@ function BookingPageContent() {
                       </div>
                     )}
 
-                    <div>
-                      <p className="text-sm font-semibold text-[#493C3C]">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[#493C3C]">
                         {service.vendor.businessName ||
                           service.vendor.name}
                       </p>

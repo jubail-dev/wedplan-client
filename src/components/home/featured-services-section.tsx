@@ -246,7 +246,7 @@ export default function FeaturedServicesSection() {
 
                       <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/5" />
 
-                      <span className="absolute left-4 top-4 max-w-[75%] truncate rounded-full border border-white/60 bg-white/90 px-3.5 py-2 text-[11px] font-semibold text-[#A65D68] shadow-sm backdrop-blur-md">
+                      <span className="absolute left-4 top-4 max-w-[55%] truncate rounded-full border border-white/60 bg-white/90 px-3.5 py-2 text-[11px] font-semibold text-[#A65D68] shadow-sm backdrop-blur-md sm:max-w-[75%]">
                         {service.category}
                       </span>
 
